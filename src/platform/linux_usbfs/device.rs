@@ -23,14 +23,16 @@ use rustix::{
 use slab::Slab;
 
 use super::{
-    enumeration::{SysfsError, SysfsErrorKind},
     errno_to_transfer_error, events,
     usbfs::{self, Urb},
     TransferData,
 };
 
 #[cfg(not(target_os = "android"))]
-use super::SysfsPath;
+use super::{
+    enumeration::{SysfsError, SysfsErrorKind},
+    SysfsPath,
+};
 
 use crate::{
     bitset::EndpointBitSet,
