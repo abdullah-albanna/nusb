@@ -23,6 +23,7 @@ use rustix::{
 use slab::Slab;
 
 use super::{
+    enumeration::{SysfsError, SysfsErrorKind},
     errno_to_transfer_error, events,
     usbfs::{self, Urb},
     TransferData,
@@ -140,10 +141,19 @@ impl LinuxDevice {
 
         #[cfg(not(target_os = "android"))]
         let active_config: u8 = if let Some(sysfs) = sysfs.as_ref() {
-            sysfs.read_attr("bConfigurationValue").map_err(|e| {
-                warn!("failed to read sysfs bConfigurationValue: {e}");
-                Error::new(ErrorKind::Other, "failed to read sysfs bConfigurationValue")
-            })?
+            match sysfs.read_attr("bConfigurationValue") {
+                Ok(v) => v,
+                // the attr is probably empty, so default to 0
+                Err(SysfsError(_, SysfsErrorKind::Parse(_))) => 0,
+
+                Err(e) => {
+                    warn!("failed to read sysfs bConfigurationValue: {e}");
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "failed to read sysfs bConfigurationValue",
+                    ));
+                }
+            }
         } else {
             guess_active_configuration(&fd, &descriptors)
         };
@@ -324,6 +334,10 @@ impl LinuxDevice {
                 Ok(v) => {
                     self.active_config.store(v, Ordering::SeqCst);
                     return v;
+                }
+                Err(SysfsError(_, SysfsErrorKind::Parse(_))) => {
+                    self.active_config.store(0, Ordering::SeqCst);
+                    return 0;
                 }
                 Err(e) => {
                     error!("Failed to read sysfs bConfigurationValue: {e}, using cached value");
