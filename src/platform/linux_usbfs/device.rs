@@ -145,7 +145,8 @@ impl LinuxDevice {
         let active_config: u8 = if let Some(sysfs) = sysfs.as_ref() {
             match sysfs.read_attr("bConfigurationValue") {
                 Ok(v) => v,
-                // the attr is probably empty, so default to 0
+                // Linux returns an empty string when the device is unconfigured.
+                // We'll assume all parse errors are the empty string.
                 Err(SysfsError(_, SysfsErrorKind::Parse(_))) => 0,
 
                 Err(e) => {
